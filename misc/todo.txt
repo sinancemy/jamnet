@@ -10,3 +10,5 @@
 (4)[B] Think about tempo resizing
 
 (5)[A] !!!Convert JNN to use torch tensors.
+
+Git test.
