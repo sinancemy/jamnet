@@ -1,0 +1,12 @@
+
+########################################################################################################################
+
+(1)[C] Choose which MIDI tracks will be included in each JNN track.
+
+(1)[D] Chord extraction
+
+(3)[B] Handle overcrowded lead tracks.
+
+(4)[B] Think about tempo resizing
+
+(5)[A] !!!Convert JNN to use torch tensors.
