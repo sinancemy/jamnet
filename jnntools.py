@@ -86,7 +86,7 @@ def parse_notes(track):
                     new[2] += midi_note_messages[j].time
                     break
             notes.append(new)
-    return clean_identical_notes(notes, 512), start
+    return clean_identical_notes(notes, 128), start
 
 
 def group_midi_tracks(midi_tracks):
