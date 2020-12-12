@@ -1,7 +1,4 @@
-import dataset as dataset_
-import musictheory
-import model as model_
-import output
+from src import model as model_, dataset as dataset_
 
 REBUILD_DATASET, CONVERT_DATASET = True, True
 
