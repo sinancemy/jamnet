@@ -1,18 +1,16 @@
 import math
+import numpy as np
 
-# TODO:
-# Chord extraction
-# Lead/bass trimming/monophonicization
-
-# IDEAS:
-# Lead extraction (from acmp)?
-# Rhythm extraction?
+# Further ideas:
+# Lead extraction from acmp
+# Rhythm extraction
 
 
-def monophonicize_track(jnn_track):
+# Method to remove multi-tonality from lead and bass parts (where multiple parts of the arrangement collided)
+def monophonicize_roll(single_roll):
     pass
 
 
-def extract_chords(jnn_track):  # Input track should be combination of all tracks.
-    for jnn_note in jnn_track:
-        pass
+# Extract chords for "chord-awareness"
+def extract_chords(roll):
+    pass
