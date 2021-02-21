@@ -27,5 +27,5 @@ def convert(test=False):
     src_dir = RAW_MIDI_DIR if not test else RAW_MIDI_TEST_DIR
     for midi_name in tqdm([midi_name[0:midi_name.index(".mid")] for midi_name in os.listdir(src_dir)]):
         jnn.jnnize_midi("%s/%s.mid" % (src_dir, midi_name),
-                        "%s/%s_JNN.mid" % (CONVERTED_MIDI_DIR, midi_name), downscale_f=DOWNSCALE_FACTOR)
+                        "%s/%s_JN.mid" % (CONVERTED_MIDI_DIR, midi_name), downscale_f=DOWNSCALE_FACTOR)
     print("Converted %d MIDI files to JNN'ized MIDI files." % len(os.listdir(src_dir)))
