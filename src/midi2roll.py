@@ -1,9 +1,6 @@
 import mido.midifiles.tracks as mitracks
 from mido import MidiFile, MidiTrack, Message, MetaMessage
-import copy
 import numpy as np
-
-# TODO: Tidying up and documenting
 
 ''' MIDI <-> Roll converter for creating JamNet data-sets and converting JamNet outputs to MIDI. '''
 
@@ -23,8 +20,8 @@ VIBRAPHONE = [11, 12, 13]
 # Define which instruments belong to which part
 PART_INSTRUMENTS = {"bass": BASS, "acmp": PIANO + ORGAN + GUITAR,
                     "lead": SAX + BRASS + CLARINET + FLUTE + VIBRAPHONE}
-# Define output instruments
-OUTPUT_INSTRUMENTS = {"bass": 32, "acmp": 0, "lead": 11}  # 26 = Jazz Guitar
+# Define output instruments (Common Instruments : 32 = Acoustic Bass, 0 = Piano, 11 = Vibraphone, 26 = Jazz Guitar)
+OUTPUT_INSTRUMENTS = {"bass": 32, "acmp": 0, "lead": 11}
 
 # For parsing instruments
 PERC_NAMES = ["perc", "drum", "snare", "cymb", "bongo", "shake", "bd", "hh", "kick", "hi-hat", "hihat", "hi hat",
@@ -33,20 +30,36 @@ PERC_SAFE_NAMES = ["org", "chro"]
 LEAD_NAMES = ["lead", "melody", "voice"]
 
 
-
-def midi_to_rollt(full_raw_midi_dir, f):
-    """ MIDI to roll """
+def midi_to_rollt(full_raw_midi_dir, downscale_f=64.0):
+    """ Converts given MIDI file to roll, also return tempo """
     midif = MidiFile(full_raw_midi_dir)
-    roll = grouped_tracks_to_roll(parse_midi_tracks(midif), midif, f)
-    tempo = parse_tempo(midif)
+    roll = _grouped_tracks_to_roll(_parse_midi_tracks(midif), midif, downscale_f)
+    tempo = _parse_tempo(midif)
     return roll, tempo
 
 
-def parse_midi_tracks(midif):
+def rollt_to_midi(rollt, full_midi_save_dir, downscale_f=64.0):
+    """ Converts the roll and tempo of a piece to a MIDI file. """
+    roll, tempo = rollt
+    midif = MidiFile(type=1)
+    midif.tracks.append(_generate_header_track(tempo))
+    roll_dict = {"bass": roll[:, :, 0], "acmp": roll[:, :, 1], "lead": roll[:, :, 2]}
+    for channel, part in enumerate(roll_dict):
+        midif.tracks.append(_instrument_roll_to_midi_track(roll_dict[part], part, channel, downscale_f))
+    midif.save(full_midi_save_dir)
+    return midif
+
+
+def make_jamnet_midi(full_raw_midi_dir, full_jamnet_midi_save_dir, downscale_f=64.0):
+    """ Jamnetize raw MIDI file. """
+    rollt_to_midi(midi_to_rollt(full_raw_midi_dir, downscale_f), full_jamnet_midi_save_dir, downscale_f)
+
+
+def _parse_midi_tracks(midif):
     tracks = []
     for i, track in enumerate(midif.tracks):
-        track_name = parse_midi_track_name(track)
-        instrument_type = parse_midi_track_instrument(track)
+        track_name = _parse_midi_track_name(track)
+        instrument_type = _parse_midi_track_instrument(track)
         if not instrument_type is None:
             is_perc = False
             for perc_name in PERC_NAMES:
@@ -73,7 +86,7 @@ def parse_midi_tracks(midif):
     return grouped_tracks
 
 
-def parse_midi_track_instrument(track):
+def _parse_midi_track_instrument(track):
     for msg in track:
         if msg.type == 'program_change':
             for inst_type in PART_INSTRUMENTS:
@@ -83,7 +96,7 @@ def parse_midi_track_instrument(track):
     return None
 
 
-def parse_midi_track_name(track):
+def _parse_midi_track_name(track):
     for msg in track:
         if msg.type == 'track_name':
             return msg.name
@@ -92,43 +105,43 @@ def parse_midi_track_name(track):
     return "null"
 
 
-def parse_tempo(midif):
+def _parse_tempo(midif):
     for i, track in enumerate(midif.tracks):
         for msg in track:
             if msg.type == "set_tempo":
                 return msg.tempo
 
 
-def grouped_tracks_to_roll(grouped_tracks, midif, f):
-    jnn_piece_ = {"bass": list(), "acmp": list(), "lead": list()}
+def _grouped_tracks_to_roll(grouped_tracks, midif, f):
+    roll_dict = dict()
     starts = []
     lens = []
     for g in grouped_tracks:
         if grouped_tracks[g]:
-            jnn_piece_[g], start = parse_notes(
+            roll_dict[g], start = _parse_notes(
                 mitracks.merge_tracks([track for i, track in enumerate(midif.tracks) if i in grouped_tracks[g]]), f)
             starts.append(start)
-            if jnn_piece_[g] is not None:
-                lens.append(jnn_piece_[g].shape[1])
+            if roll_dict[g] is not None:
+                lens.append(roll_dict[g].shape[1])
         else:
-            jnn_piece_[g] = None  # No track
+            roll_dict[g] = None  # No track
 
     max_len = max(lens)
-    for g in jnn_piece_:
-        if jnn_piece_[g] is None:
-            jnn_piece_[g] = np.zeros((88, max_len), dtype=bool)
-        elif jnn_piece_[g].shape[1] < max_len:
-            jnn_piece_[g] = np.hstack((jnn_piece_[g], np.zeros((88, max_len - jnn_piece_[g].shape[1]), dtype=bool)))
+    for g in roll_dict:
+        if roll_dict[g] is None:
+            roll_dict[g] = np.zeros((88, max_len), dtype=bool)
+        elif roll_dict[g].shape[1] < max_len:
+            roll_dict[g] = np.hstack((roll_dict[g], np.zeros((88, max_len - roll_dict[g].shape[1]), dtype=bool)))
 
     if len(starts) > 1:
         start = min(starts)
-        for g in jnn_piece_:
-            jnn_piece_[g] = np.delete(jnn_piece_[g], slice(0, start), 1)
+        for g in roll_dict:
+            roll_dict[g] = np.delete(roll_dict[g], slice(0, start), 1)
 
-    return np.dstack((jnn_piece_["lead"], jnn_piece_["acmp"], jnn_piece_["bass"]))
+    return np.dstack((roll_dict["bass"], roll_dict["acmp"], roll_dict["lead"]))
 
 
-def parse_notes(track, f):
+def _parse_notes(track, f):
     midi_note_messages = []
     for msg in mitracks._to_abstime(track):
         if msg.type == 'note_on' or msg.type == 'note_off':
@@ -145,11 +158,11 @@ def parse_notes(track, f):
                     new[2] += midi_note_messages[j].time
                     break
             if 0 < new[0] < 88:
-                roll = add_note_to_roll(roll, new, f)
+                roll = _add_note_to_roll(roll, new, f)
     return roll, int(start / f)
 
 
-def add_note_to_roll(roll, note, f):
+def _add_note_to_roll(roll, note, f):
     note[1], note[2] = int(note[1] / f), int(note[2] / f)
     if roll is None:
         roll = np.zeros((88, note[2]), dtype=bool)
@@ -159,19 +172,7 @@ def add_note_to_roll(roll, note, f):
     return roll
 
 
-def rollt_to_midi(rollt, full_midi_save_dir, f):
-    """ Roll to MIDI. """
-    roll, tempo = rollt
-    midif = MidiFile(type=1)
-    midif.tracks.append(generate_header_track(tempo))
-    jnn_piece = {"lead": roll[:, :, 0], "acmp": roll[:, :, 1], "bass": roll[:, :, 2]}
-    for channel, jnn_instrument in enumerate(jnn_piece):
-        midif.tracks.append(jnn_track_to_midi_track(jnn_piece[jnn_instrument], jnn_instrument, channel, f))
-    midif.save(full_midi_save_dir)
-    return midif
-
-
-def generate_header_track(tempo):
+def _generate_header_track(tempo):
     midit = MidiTrack()
     midit.append(MetaMessage("time_signature", numerator=4, denominator=4,
                              clocks_per_click=24, notated_32nd_notes_per_beat=8, time=0))
@@ -181,9 +182,9 @@ def generate_header_track(tempo):
     return midit
 
 
-def jnn_track_to_midi_track(track, jnn_instrument, channel, f):
-    messages = [Message(type='program_change', channel=channel, program=OUTPUT_INSTRUMENTS[jnn_instrument], time=0),
-                MetaMessage("track_name", name=jnn_instrument, time=0)]
+def _instrument_roll_to_midi_track(track, part, channel, f):
+    messages = [Message(type='program_change', channel=channel, program=OUTPUT_INSTRUMENTS[part], time=0),
+                MetaMessage("track_name", name=part, time=0)]
     for note, pitch_line in enumerate(track[:, ]):
         last = 0
         start = 0
@@ -191,27 +192,17 @@ def jnn_track_to_midi_track(track, jnn_instrument, channel, f):
             if last == 0 and n == 1:
                 start = dt
             if n == 0 and last == 1:
-                messages.append(Message(type="note_on", channel=channel, note=note, velocity=50, time=int(start*f)))
-                messages.append(Message(type="note_off", channel=channel, note=note, velocity=0, time=int(dt*f)))
+                messages.append(Message(type="note_on", channel=channel, note=note, velocity=50, time=int(start * f)))
+                messages.append(Message(type="note_off", channel=channel, note=note, velocity=0, time=int(dt * f)))
             last = n
     messages.sort(key=lambda msg: msg.time)
     return MidiTrack(mitracks.fix_end_of_track(mitracks._to_reltime(messages)))
 
 
-def jnnize_midi(full_raw_midi_dir, full_jnnized_midi_save_dir, downscale_f):
-    """ JNN'ize raw MIDI file. """
-    rollt_to_midi(midi_to_rollt(full_raw_midi_dir, downscale_f), full_jnnized_midi_save_dir, downscale_f)
-
-
 def pack_roll(roll):
+    # From inefficient 1-byte booleans to efficient 1-byte integers.
     return np.packbits(roll, axis=1)
 
 
 def unpack_roll(roll):
     return np.unpackbits(roll, axis=1)
-
-# print("Start")
-# jnnize_midi("data/raw_midi/ANightInTunisia.mid", "C:/Users/HP/Desktop/saved.mid", downscale_f=128.0)
-
-# B = np.packbits(A, axis=1).reshape((88, -1, 3))
-# print(B.shape, ", ", B.size, ", ", B.itemsize, ", ", B.size * B.itemsize)

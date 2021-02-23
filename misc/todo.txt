@@ -1,14 +1,8 @@
-
+++
 ########################################################################################################################
 
-(1)[C] Choose which MIDI tracks will be included in each JNN track.
+(1)[UI] Choose which MIDI tracks will be included in each JNN track.
 
-(1)[D] Chord extraction
+(2)[PP] Normalize for tempo or not?
 
-(3)[B] Handle overcrowded lead tracks.
-
-(4)[B] Think about tempo resizing
-
-(5)[A] !!!Convert JNN to use torch tensors.
-
-Test
+(3)[PP&Model] Music theory

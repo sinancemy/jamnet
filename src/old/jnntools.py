@@ -7,7 +7,7 @@ import numpy as np
 
 
 
-# OLD VERSION OF midi2jnn.py. Converts to and from a "note array" format instead of tensors.
+# OLD VERSION OF midi2roll.py. Converts to and from a "note array" format instead of tensors.
 # Not deleting in case I find a use for this.
 
 
